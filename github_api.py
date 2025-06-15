@@ -8,13 +8,14 @@ import os
 import json
 from typing import Dict, List, Optional, Any
 
-# Import Strands tools at module level
+# Import requests for HTTP calls instead of strands_tools
 try:
-    from strands_tools import http_request
-    print("✅ http_request imported successfully")
+    import requests
+    print("✅ requests imported successfully")
+    HTTP_LIB_AVAILABLE = True
 except ImportError as e:
-    print(f"❌ Failed to import http_request: {e}")
-    http_request = None
+    print(f"❌ Failed to import requests: {e}")
+    HTTP_LIB_AVAILABLE = False
 
 def get_github_token() -> str:
     """Get GitHub token from environment"""
@@ -54,33 +55,52 @@ class GitHubAPI:
         self.headers = get_github_headers()
     
     def make_request(self, method: str, endpoint: str, data: Optional[Dict] = None) -> Optional[Dict]:
-        """Make authenticated GitHub API request"""
-        if http_request is None:
-            print("❌ http_request not available")
+        """Make authenticated GitHub API request using requests library"""
+        if not HTTP_LIB_AVAILABLE:
+            print("❌ requests library not available")
             return None
             
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
         
         print(f"🔗 GitHub API: {method.upper()} {endpoint}")
         print(f"🔗 URL: {url}")
-        print(f"🔗 Headers: {self.headers}")
         
         try:
+            # Prepare request parameters
+            kwargs = {
+                'headers': self.headers,
+                'timeout': 30
+            }
+            
+            if data and method.upper() in ['POST', 'PATCH', 'PUT']:
+                kwargs['json'] = data
+            
+            # Make the request
             if method.upper() == "GET":
-                result = http_request(method="GET", url=url, headers=self.headers)
+                response = requests.get(url, **kwargs)
             elif method.upper() == "POST":
-                result = http_request(method="POST", url=url, headers=self.headers, data=data)
+                response = requests.post(url, **kwargs)
             elif method.upper() == "PATCH":
-                result = http_request(method="PATCH", url=url, headers=self.headers, data=data)
+                response = requests.patch(url, **kwargs)
             elif method.upper() == "PUT":
-                result = http_request(method="PUT", url=url, headers=self.headers, data=data)
+                response = requests.put(url, **kwargs)
             elif method.upper() == "DELETE":
-                result = http_request(method="DELETE", url=url, headers=self.headers)
+                response = requests.delete(url, **kwargs)
             else:
                 raise ValueError(f"Unsupported HTTP method: {method}")
             
-            print(f"✅ GitHub API Response: {type(result)}")
-            return result
+            print(f"✅ GitHub API Response: {response.status_code}")
+            
+            # Check if request was successful
+            if response.status_code in [200, 201, 202]:
+                try:
+                    return response.json()
+                except ValueError:
+                    return {"success": True, "status_code": response.status_code}
+            else:
+                print(f"❌ GitHub API Error: {response.status_code} - {response.text}")
+                return None
+                
         except Exception as e:
             print(f"❌ GitHub API Error: {e}")
             print(f"❌ Error type: {type(e)}")

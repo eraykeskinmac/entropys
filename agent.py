@@ -1,19 +1,43 @@
 #!/usr/bin/env python3
+"""
+Advanced Multi-Agent GitHub Development System
+Comprehensive AI-powered repository management with:
+- Multi-agent coordination
+- Streaming responses
+- Meta-tooling capabilities
+- Dynamic tool creation
+- Self-improving architecture
+"""
+
 import os
 import sys
+import json
+import asyncio
+import logging
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Any
 
-from strands import Agent
+from strands import Agent, tool
 from strands.models.openai import OpenAIModel
-
 from strands_tools import (
-    file_read,
-    file_write,
-    http_request,
-    environment,
-    shell
+    file_read, file_write, http_request, environment, shell,
+    current_time, python_repl, calculator, load_tool, editor,
+    mem0_memory, journal
 )
 
-# Import our custom GitHub modules
+# Import our advanced modules
+try:
+    from advanced_multi_agent import AdvancedGitHubMultiAgent
+    from streaming_multi_agent import StreamingMultiAgent, StreamingCallbackHandler
+    from meta_tooling_agent import MetaToolingMultiAgent, MetaToolingEngine
+    print("✅ Advanced agent modules loaded successfully")
+except ImportError as e:
+    print(f"⚠️ Warning: Could not import advanced modules: {e}")
+    AdvancedGitHubMultiAgent = None
+    StreamingMultiAgent = None
+    MetaToolingMultiAgent = None
+
+# Import legacy GitHub modules for compatibility
 try:
     from github_api import GitHubAPI
     from agent_actions import GitHubAgentActions
@@ -23,115 +47,363 @@ except ImportError as e:
     GitHubAPI = None
     GitHubAgentActions = None
 
-# Initialize the OpenAI model
-model = OpenAIModel(
-    client_args={'api_key': os.getenv('OPENAI_API_KEY')},
-    model_id=os.getenv('OPENAI_MODEL_ID', 'gpt-4o-mini'),
-    params={'max_completion_tokens': int(os.getenv('OPENAI_MAX_TOKENS', '4000'))}
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+logger = logging.getLogger(__name__)
 
-# GitHub agent system prompt
-PROMPT = f"""
-You are an autonomous GitHub agent running in GitHub Actions for repository: {os.getenv('GITHUB_REPOSITORY', 'Unknown')}.
-You use the Strands Agents SDK and OpenAI to proactively manage THIS specific repository.
+class UnifiedGitHubAgent:
+    """Unified GitHub Agent with multiple operational modes"""
+    
+    def __init__(self):
+        self.repo = os.getenv('GITHUB_REPOSITORY', 'unknown/repo')
+        self.token = os.getenv('GITHUB_TOKEN')
+        self.actor = os.getenv('GITHUB_ACTOR', 'unknown')
+        
+        # Initialize model
+        self.model = OpenAIModel(
+            client_args={'api_key': os.getenv('OPENAI_API_KEY')},
+            model_id=os.getenv('OPENAI_MODEL_ID', 'gpt-4o-mini'),
+            params={'max_completion_tokens': int(os.getenv('OPENAI_MAX_TOKENS', '4000'))}
+        )
+        
+        # Initialize different agent modes
+        self.basic_agent = None
+        self.advanced_agent = None
+        self.streaming_agent = None
+        self.meta_agent = None
+        
+        self._initialize_agents()
+    
+    def _initialize_agents(self):
+        """Initialize all agent modes"""
+        
+        # Basic Agent (legacy compatibility)
+        self._setup_basic_agent()
+        
+        # Advanced Multi-Agent System
+        if AdvancedGitHubMultiAgent:
+            try:
+                self.advanced_agent = AdvancedGitHubMultiAgent()
+                print("✅ Advanced Multi-Agent system initialized")
+            except Exception as e:
+                print(f"⚠️ Failed to initialize Advanced Multi-Agent: {e}")
+        
+        # Streaming Agent System
+        if StreamingMultiAgent:
+            try:
+                self.streaming_agent = StreamingMultiAgent()
+                print("✅ Streaming Multi-Agent system initialized")
+            except Exception as e:
+                print(f"⚠️ Failed to initialize Streaming Multi-Agent: {e}")
+        
+        # Meta-Tooling Agent System
+        if MetaToolingMultiAgent:
+            try:
+                self.meta_agent = MetaToolingMultiAgent()
+                print("✅ Meta-Tooling Multi-Agent system initialized")
+            except Exception as e:
+                print(f"⚠️ Failed to initialize Meta-Tooling Multi-Agent: {e}")
+    
+    def _setup_basic_agent(self):
+        """Setup basic agent for compatibility"""
+        
+        basic_prompt = f"""
+You are an advanced GitHub agent running in GitHub Actions for repository: {self.repo}.
+You use the Strands Agents SDK to autonomously manage and improve repositories.
 
-**PRIMARY MISSION:**
-Focus ONLY on the current repository: {os.getenv('GITHUB_REPOSITORY', 'Unknown')}
-Create issues, PRs, and improvements for THIS repository specifically.
+OPERATIONAL MODES AVAILABLE:
+1. BASIC MODE: Standard repository management
+2. ADVANCED MODE: Multi-agent coordination with specialists
+3. STREAMING MODE: Real-time streaming responses
+4. META-TOOLING MODE: Dynamic tool creation and optimization
 
-**CORE RESPONSIBILITIES:**
-- Analyze THIS repository's health and status
-- Create issues for missing documentation, improvements, bugs
-- Assign issues to repository collaborators (especially @{os.getenv('GITHUB_ACTOR', 'owner')})
-- Add appropriate labels (documentation, enhancement, bug, maintenance)
-- Create pull requests to fix issues when appropriate
-- Write documentation (README updates, CONTRIBUTING.md, etc.)
-- Organize work using milestones and project boards
+CORE CAPABILITIES:
+- Autonomous repository analysis and improvement
+- Issue creation, management, and resolution
+- Pull request review and management
+- Code quality analysis and enhancement
+- Security vulnerability detection and fixing
+- Documentation generation and updates
+- Test creation and coverage improvement
+- CI/CD pipeline optimization
 
-**GITHUB ACTIONS AVAILABLE:**
-✅ POWERFUL: Use the GitHubAgentActions class for comprehensive repository management!
+ADVANCED FEATURES:
+- Multi-agent coordination for complex tasks
+- Real-time streaming responses for long operations
+- Dynamic tool creation based on repository needs
+- Self-improving architecture with learning capabilities
+- Meta-programming for custom solution development
 
-**Quick Actions:**
-```python
-# Initialize the actions class
-from agent_actions import GitHubAgentActions
-actions = GitHubAgentActions()
+Current repository: {self.repo}
+Current actor: {self.actor}
 
-# Run full health check (recommended)
-results = actions.run_full_health_check()
-
-# Or use specific actions:
-actions.create_health_improvement_issue()
-actions.create_documentation_issues()
-actions.create_ci_cd_improvement_issue()
-actions.setup_repository_labels()
-actions.create_weekly_status_issue()
-```
-
-**Direct GitHub API:**
-```python
-# For custom API calls
-from github_api import GitHubAPI
-github = GitHubAPI()
-
-repo_info = github.get_repo_info()
-issues = github.get_issues()
-github.create_issue(title="...", body="...", assignees=["..."], labels=["..."])
-```
-
-**RECOMMENDED APPROACH:** Use `actions.run_full_health_check()` for comprehensive repository improvement!
-
-**PROACTIVE ACTIONS TO TAKE:**
-1. Check current repository status and existing issues
-2. Create improvement issues like:
-   - "Improve README documentation" 
-   - "Add CONTRIBUTING.md guidelines"
-   - "Standardize issue templates"
-   - "Add CI/CD improvements"
-   - "Code quality enhancements"
-3. Assign issues to @{os.getenv('GITHUB_ACTOR', 'owner')}
-4. Add relevant labels and milestones
-5. Create weekly status reports
-
-**EXAMPLE ISSUE CREATION:**
-```
-POST /repos/{os.getenv('GITHUB_REPOSITORY', '')}/issues
-{{
-  "title": "Enhance Documentation and Project Setup",
-  "body": "## Proposal\\n\\nTo improve repository health, I suggest:\\n\\n1. **README Enhancement**\\n   - Add clear installation instructions\\n   - Include usage examples\\n\\n2. **Development Guidelines**\\n   - Create CONTRIBUTING.md\\n   - Add issue templates\\n\\nThis will improve developer experience and project maintainability.",
-  "labels": ["documentation", "enhancement"],
-  "assignees": ["{os.getenv('GITHUB_ACTOR', '')}"]
-}}
-```
-
-**Current Context:**
-- Repository: {os.getenv('GITHUB_REPOSITORY', 'Unknown')}
-- Event: {os.getenv('GITHUB_EVENT_NAME', 'Unknown')} 
-- Actor: {os.getenv('GITHUB_ACTOR', 'Unknown')}
-
-**START YOUR WORK:**
-1. Import and initialize GitHubAgentActions
-2. Run comprehensive health check
-3. Review results and take additional actions if needed
-
-**QUICK START COMMAND:**
-Use shell tool to execute: `python3 -c "from agent_actions import GitHubAgentActions; actions = GitHubAgentActions(); results = actions.run_full_health_check(); print('Actions completed:', len(results['actions_taken']))"`
-
-This will automatically create issues, labels, milestones, and status reports!
+INSTRUCTIONS:
+- Analyze the task and choose the most appropriate operational mode
+- Use advanced features when beneficial
+- Provide comprehensive solutions
+- Take autonomous actions to improve repository health
+- Create issues, PRs, and documentation as needed
 """
+        
+        self.basic_agent = Agent(
+            model=self.model,
+            system_prompt=basic_prompt,
+            tools=[
+                self._create_unified_tools(),
+                file_read, file_write, http_request, environment, shell,
+                current_time, python_repl, calculator, load_tool, editor,
+                mem0_memory, journal
+            ]
+        )
+    
+    def _create_unified_tools(self):
+        """Create unified tools that can access all agent modes"""
+        
+        @tool
+        def activate_advanced_mode(task_description: str) -> str:
+            """Activate advanced multi-agent mode for complex tasks"""
+            if not self.advanced_agent:
+                return "Advanced mode not available"
+            
+            try:
+                result = self.advanced_agent.run_autonomous_maintenance()
+                return f"Advanced mode executed: {json.dumps(result, indent=2)}"
+            except Exception as e:
+                return f"Advanced mode failed: {str(e)}"
+        
+        @tool
+        def activate_streaming_mode(task_description: str) -> str:
+            """Activate streaming mode for real-time responses"""
+            if not self.streaming_agent:
+                return "Streaming mode not available"
+            
+            try:
+                results = self.streaming_agent.run_streaming_development(task_description)
+                return f"Streaming mode completed with {len(results)} events"
+            except Exception as e:
+                return f"Streaming mode failed: {str(e)}"
+        
+        @tool
+        def activate_meta_tooling_mode(task_description: str) -> str:
+            """Activate meta-tooling mode for dynamic tool creation"""
+            if not self.meta_agent:
+                return "Meta-tooling mode not available"
+            
+            try:
+                result = self.meta_agent.run_meta_development(task_description)
+                return f"Meta-tooling mode executed: {json.dumps(result, indent=2)}"
+            except Exception as e:
+                return f"Meta-tooling mode failed: {str(e)}"
+        
+        @tool
+        def github_api(endpoint: str, method: str = 'GET', data: Optional[Dict] = None) -> Dict:
+            """Enhanced GitHub API calls"""
+            if not self.token:
+                return {"error": "GitHub token not available"}
+            
+            headers = {
+                'Authorization': f'Bearer {self.token}',
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json'
+            }
+            
+            url = f"https://api.github.com{endpoint}"
+            
+            try:
+                if method.upper() in ['POST', 'PUT', 'PATCH'] and data:
+                    response = http_request(method=method, url=url, headers=headers, json=data)
+                else:
+                    response = http_request(method=method, url=url, headers=headers)
+                return response
+            except Exception as e:
+                return {"error": f"GitHub API request failed: {str(e)}"}
+        
+        @tool
+        def analyze_repository_complexity() -> str:
+            """Analyze repository complexity to recommend optimal agent mode"""
+            try:
+                # Get repository information
+                repo_info = github_api(f"/repos/{self.repo}")
+                
+                if "error" in repo_info:
+                    return "Could not analyze repository complexity"
+                
+                # Analyze complexity factors
+                complexity_score = 0
+                recommendations = []
+                
+                # Size factors
+                if repo_info.get('size', 0) > 10000:  # Large repository
+                    complexity_score += 2
+                    recommendations.append("Consider advanced mode for large codebase")
+                
+                # Activity factors
+                if repo_info.get('open_issues_count', 0) > 10:
+                    complexity_score += 1
+                    recommendations.append("Advanced mode recommended for issue management")
+                
+                # Language complexity
+                languages = github_api(f"/repos/{self.repo}/languages")
+                if not isinstance(languages, dict) or "error" not in languages:
+                    if len(languages) > 3:
+                        complexity_score += 1
+                        recommendations.append("Multi-language project benefits from specialized agents")
+                
+                # Recommend mode based on complexity
+                if complexity_score >= 3:
+                    mode_recommendation = "META-TOOLING MODE - High complexity requires custom tools"
+                elif complexity_score >= 2:
+                    mode_recommendation = "ADVANCED MODE - Multiple specialists needed"
+                elif complexity_score >= 1:
+                    mode_recommendation = "STREAMING MODE - Real-time feedback beneficial"
+                else:
+                    mode_recommendation = "BASIC MODE - Standard operations sufficient"
+                
+                return f"""
+REPOSITORY COMPLEXITY ANALYSIS:
+Repository: {self.repo}
+Complexity Score: {complexity_score}/4
+Recommended Mode: {mode_recommendation}
 
-# Create the agent
-agent = Agent(
-    model=model,
-    system_prompt=PROMPT,
-    tools=[file_read, file_write, http_request, environment, shell]
-)
+Factors:
+{chr(10).join(f"- {rec}" for rec in recommendations)}
+
+Available Modes:
+- BASIC: Standard repository management
+- ADVANCED: Multi-agent coordination
+- STREAMING: Real-time responses
+- META-TOOLING: Dynamic tool creation
+"""
+            except Exception as e:
+                return f"Repository analysis failed: {str(e)}"
+        
+        @tool
+        def execute_comprehensive_improvement() -> str:
+            """Execute comprehensive repository improvement using all available modes"""
+            results = []
+            
+            # Start with repository analysis
+            analysis = analyze_repository_complexity()
+            results.append(f"Analysis: {analysis}")
+            
+            # Try each mode based on availability and suitability
+            if self.meta_agent:
+                try:
+                    meta_result = self.meta_agent.run_meta_development(
+                        "Comprehensive repository analysis and improvement with custom tool creation"
+                    )
+                    results.append(f"Meta-tooling: {meta_result['status']}")
+                except Exception as e:
+                    results.append(f"Meta-tooling failed: {str(e)}")
+            
+            if self.advanced_agent:
+                try:
+                    advanced_result = self.advanced_agent.run_autonomous_maintenance()
+                    results.append(f"Advanced mode: {advanced_result['status']}")
+                except Exception as e:
+                    results.append(f"Advanced mode failed: {str(e)}")
+            
+            # Legacy actions as fallback
+            if GitHubAgentActions:
+                try:
+                    actions = GitHubAgentActions()
+                    health_result = actions.run_full_health_check()
+                    results.append(f"Health check: {len(health_result.get('actions_taken', []))} actions taken")
+                except Exception as e:
+                    results.append(f"Health check failed: {str(e)}")
+            
+            return f"Comprehensive improvement completed:\n" + "\n".join(results)
+        
+        return [
+            activate_advanced_mode,
+            activate_streaming_mode,
+            activate_meta_tooling_mode,
+            github_api,
+            analyze_repository_complexity,
+            execute_comprehensive_improvement
+        ]
+    
+    def process_message(self, message: str, mode: str = "auto") -> str:
+        """Process message with specified or auto-detected mode"""
+        
+        if mode == "auto":
+            # Auto-detect best mode based on message content
+            if any(keyword in message.lower() for keyword in ["stream", "real-time", "live", "progress"]):
+                mode = "streaming"
+            elif any(keyword in message.lower() for keyword in ["create tool", "custom", "meta", "dynamic"]):
+                mode = "meta-tooling"
+            elif any(keyword in message.lower() for keyword in ["complex", "comprehensive", "multi", "specialist"]):
+                mode = "advanced"
+            else:
+                mode = "basic"
+        
+        print(f"🤖 Processing with {mode.upper()} mode")
+        
+        try:
+            if mode == "streaming" and self.streaming_agent:
+                results = self.streaming_agent.run_streaming_development(message)
+                return f"Streaming mode completed with {len(results)} events"
+            
+            elif mode == "meta-tooling" and self.meta_agent:
+                result = self.meta_agent.run_meta_development(message)
+                return json.dumps(result, indent=2)
+            
+            elif mode == "advanced" and self.advanced_agent:
+                # For advanced mode, we'll use the basic agent to coordinate
+                enhanced_message = f"""
+ADVANCED MULTI-AGENT COORDINATION REQUEST:
+
+Original Message: {message}
+
+INSTRUCTIONS:
+1. Use activate_advanced_mode to engage specialist agents
+2. Coordinate complex tasks across multiple domains
+3. Provide comprehensive solutions
+4. Take autonomous actions as appropriate
+
+Execute advanced multi-agent coordination now.
+"""
+                return self.basic_agent(enhanced_message)
+            
+            else:
+                # Use basic agent
+                return self.basic_agent(message)
+                
+        except Exception as e:
+            logger.error(f"Error processing message in {mode} mode: {e}")
+            return f"Error in {mode} mode: {str(e)}"
 
 def main():
     """Main execution function"""
+    import argparse
+    
     try:
+        print("🚀 Initializing Advanced Multi-Agent GitHub Development System")
+        print("=" * 80)
+        
+        # Parse command line arguments
+        parser = argparse.ArgumentParser(description='Advanced Multi-Agent GitHub Development System')
+        parser.add_argument('message', nargs='?', help='Task message for the AI agents')
+        parser.add_argument('--mode', choices=['auto', 'basic', 'advanced', 'streaming', 'meta-tooling'], 
+                          default='auto', help='Agent mode selection')
+        parser.add_argument('--priority', choices=['low', 'normal', 'high', 'critical'], 
+                          default='normal', help='Task priority level')
+        
+        args = parser.parse_args()
+        
+        # Initialize unified agent
+        unified_agent = UnifiedGitHubAgent()
+        
         # Get the message to process
-        message = sys.argv[1] if len(sys.argv) > 1 else None
+        message = args.message
+        mode = args.mode
+        priority = args.priority
+        
+        print(f"🎯 Mode: {mode.upper()}")
+        print(f"📊 Priority: {priority.upper()}")
         
         # Check if running in GitHub Actions
         is_github_actions = os.getenv('GITHUB_ACTIONS') == 'true'
@@ -139,11 +411,23 @@ def main():
         if not message:
             if is_github_actions:
                 # Default message for GitHub Actions
-                message = "Analyze the repository status, check for any issues that need attention, and take proactive actions to improve the repository health."
-                print(f"Using default message for GitHub Actions: {message}")
+                message = """Perform comprehensive autonomous repository management:
+                
+1. Analyze repository health and complexity
+2. Identify improvement opportunities
+3. Create and resolve issues as needed
+4. Implement code quality improvements
+5. Update documentation and tests
+6. Apply security hardening measures
+7. Optimize CI/CD pipelines
+8. Create custom tools if beneficial
+
+Use the most appropriate agent mode based on repository characteristics."""
+                print(f"Using default GitHub Actions message")
             else:
                 # Interactive mode for local development
-                print("🤖 GitHub Agent powered by Strands Agents SDK")
+                print("🤖 Advanced Multi-Agent GitHub Development System")
+                print("Available modes: basic, advanced, streaming, meta-tooling, auto")
                 print("Type your message below or 'exit' to quit:\n")
                 
                 while True:
@@ -153,7 +437,16 @@ def main():
                             print("\nGoodbye! 👋")
                             break
                         if q.strip():
-                            agent(q)
+                            # Check for mode specification
+                            mode = "auto"
+                            if q.startswith("mode:"):
+                                parts = q.split(":", 1)
+                                if len(parts) == 2:
+                                    mode = parts[0].replace("mode", "").strip()
+                                    q = parts[1].strip()
+                            
+                            result = unified_agent.process_message(q, mode)
+                            print(f"\n📋 Response:\n{result}")
                     except KeyboardInterrupt:
                         print("\nGoodbye! 👋")
                         break
@@ -162,13 +455,20 @@ def main():
                 return
         
         # Process the message
-        print(f"Processing message: {message}")
-        result = agent(message)
-        print("Agent response completed")
+        print(f"📝 Processing message: {message[:100]}...")
+        print("=" * 80)
+        
+        result = unified_agent.process_message(message, mode)
+        
+        print("\n" + "=" * 80)
+        print("✅ Agent execution completed")
+        print(f"📋 Result: {result}")
+        
         return result
             
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error(f"Main execution failed: {e}")
+        print(f"❌ Error: {e}")
         return None
 
 if __name__ == '__main__':

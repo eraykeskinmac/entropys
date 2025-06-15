@@ -1,7 +1,7 @@
-name: GitHub Agent
+name: Advanced Multi-Agent GitHub System
 
 on:
-  # Issue events
+  # Issue events - AI agents will analyze and resolve
   issues:
     types:
       [
@@ -15,11 +15,11 @@ on:
         unlabeled,
       ]
 
-  # Issue comment events
+  # Issue comment events - AI will respond intelligently
   issue_comment:
     types: [created, edited, deleted]
 
-  # Pull request events
+  # Pull request events - Multi-agent review system
   pull_request:
     types: [opened, closed, edited, reopened, synchronize, ready_for_review]
 
@@ -31,18 +31,41 @@ on:
   pull_request_review_comment:
     types: [created, edited]
 
-  # Manual workflow dispatch
+  # Manual workflow dispatch with advanced options
   workflow_dispatch:
     inputs:
       message:
-        description: "Message to pass to the agent"
+        description: "Task for the AI agents"
         required: false
-        default: "Analyze the repository status, check for any issues that need attention, and take proactive actions to improve the repository health."
+        default: "Analyze repository health and optimize automatically"
         type: string
+      mode:
+        description: "Agent mode selection"
+        required: false
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - basic
+          - advanced
+          - streaming
+          - meta-tooling
+      priority:
+        description: "Task priority level"
+        required: false
+        default: "normal"
+        type: choice
+        options:
+          - low
+          - normal
+          - high
+          - critical
 
-  # Schedule for periodic tasks
+  # Schedule for proactive repository management
   schedule:
-    - cron: "0 9 * * MON" # Weekly on Monday at 9 AM UTC
+    - cron: "0 9 * * MON" # Weekly health check
+    - cron: "0 18 * * FRI" # Weekly optimization
+    - cron: "0 2 * * *" # Daily security scan
 
 permissions:
   contents: write
@@ -59,85 +82,136 @@ permissions:
   security-events: write
 
 jobs:
-  run-agent:
+  multi-agent-system:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
-      - name: Checkout repository
+      - name: 🚀 Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Full history for better context
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Python
+      - name: 🐍 Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
-      - name: Cache Python dependencies
+      - name: 📦 Cache dependencies
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}-strands-agents
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}-multi-agent-v2
           restore-keys: |
             ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}-
             ${{ runner.os }}-pip-
 
-      - name: Install dependencies
+      - name: 🔧 Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # Install OpenAI first (critical dependency)
+
+          # Core AI dependencies
           pip install openai>=1.0.0
-          # Install Strands Agents
           pip install strands-agents strands-agents-tools
-          # Install requirements.txt if exists
+
+          # Install all requirements
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           fi
-          # Verify installations
-          echo "Installed packages:"
-          pip list | grep -E "(strands|openai)"
 
-      - name: Configure Git
+          # Verify critical installations
+          echo "🔍 Verifying installations:"
+          python -c "import openai; print(f'✅ OpenAI: {openai.__version__}')"
+          python -c "import strands_agents; print('✅ Strands Agents: Available')" || echo "⚠️ Strands Agents: Not available"
+
+          echo "📋 All installed packages:"
+          pip list
+
+      - name: ⚙️ Configure Git
         run: |
-          git config --global user.name "GitHub Agent"
-          git config --global user.email "github-agent@users.noreply.github.com"
+          git config --global user.name "AI Multi-Agent System"
+          git config --global user.email "ai-agents@users.noreply.github.com"
 
-      - name: Prepare agent message
+      - name: 🧠 Prepare intelligent agent message
         run: |
           EVENT_TYPE="${{ github.event_name }}"
+          MODE="${{ github.event.inputs.mode || 'auto' }}"
+          PRIORITY="${{ github.event.inputs.priority || 'normal' }}"
+
+          echo "🎯 Event Analysis:"
+          echo "- Event Type: $EVENT_TYPE"
+          echo "- Mode: $MODE"
+          echo "- Priority: $PRIORITY"
 
           if [[ "$EVENT_TYPE" == "workflow_dispatch" ]]; then
             MESSAGE="${{ github.event.inputs.message }}"
             if [[ -z "$MESSAGE" ]]; then
-              MESSAGE="Analyze the repository status, check for any issues that need attention, and take proactive actions to improve the repository health."
+              MESSAGE="Analyze repository health and optimize automatically"
             fi
             echo "AGENT_MESSAGE=$MESSAGE" >> $GITHUB_ENV
+            echo "AGENT_MODE=$MODE" >> $GITHUB_ENV
+            echo "AGENT_PRIORITY=$PRIORITY" >> $GITHUB_ENV
           else
-            # Simplified event handling
+            # Intelligent event-based task assignment
             case "$EVENT_TYPE" in
               issues)
-                echo "AGENT_MESSAGE=Handle issue #${{ github.event.issue.number }}: '${{ github.event.issue.title }}' was ${{ github.event.action }}. Please analyze and take appropriate action." >> $GITHUB_ENV
+                if [[ "${{ github.event.action }}" == "opened" ]]; then
+                  echo "AGENT_MESSAGE=🐛 New issue detected: '${{ github.event.issue.title }}' (#${{ github.event.issue.number }}). Analyze the issue, understand the requirements, create a solution plan, implement fixes if possible, and provide comprehensive assistance." >> $GITHUB_ENV
+                  echo "AGENT_MODE=advanced" >> $GITHUB_ENV
+                  echo "AGENT_PRIORITY=high" >> $GITHUB_ENV
+                else
+                  echo "AGENT_MESSAGE=📝 Issue update: '${{ github.event.issue.title }}' (#${{ github.event.issue.number }}) was ${{ github.event.action }}. Review and take appropriate follow-up actions." >> $GITHUB_ENV
+                  echo "AGENT_MODE=basic" >> $GITHUB_ENV
+                  echo "AGENT_PRIORITY=normal" >> $GITHUB_ENV
+                fi
                 ;;
               issue_comment)
-                echo "AGENT_MESSAGE=Handle comment on issue #${{ github.event.issue.number }}. Please review and respond if appropriate." >> $GITHUB_ENV
+                echo "AGENT_MESSAGE=💬 Comment activity on issue #${{ github.event.issue.number }}. Analyze the conversation, provide intelligent responses, and assist with issue resolution." >> $GITHUB_ENV
+                echo "AGENT_MODE=streaming" >> $GITHUB_ENV
+                echo "AGENT_PRIORITY=normal" >> $GITHUB_ENV
                 ;;
               pull_request)
-                echo "AGENT_MESSAGE=Handle pull request #${{ github.event.pull_request.number }}: '${{ github.event.pull_request.title }}' was ${{ github.event.action }}. Please review and take appropriate action." >> $GITHUB_ENV
+                if [[ "${{ github.event.action }}" == "opened" ]]; then
+                  echo "AGENT_MESSAGE=🔍 New PR: '${{ github.event.pull_request.title }}' (#${{ github.event.pull_request.number }}). Conduct comprehensive code review, security analysis, test coverage check, and provide detailed feedback." >> $GITHUB_ENV
+                  echo "AGENT_MODE=advanced" >> $GITHUB_ENV
+                  echo "AGENT_PRIORITY=high" >> $GITHUB_ENV
+                else
+                  echo "AGENT_MESSAGE=📋 PR update: '${{ github.event.pull_request.title }}' (#${{ github.event.pull_request.number }}) was ${{ github.event.action }}. Review changes and update analysis." >> $GITHUB_ENV
+                  echo "AGENT_MODE=basic" >> $GITHUB_ENV
+                  echo "AGENT_PRIORITY=normal" >> $GITHUB_ENV
+                fi
                 ;;
-              pull_request_review|pull_request_review_comment)
-                echo "AGENT_MESSAGE=Handle PR review activity on #${{ github.event.pull_request.number }}. Please analyze and respond appropriately." >> $GITHUB_ENV
+              schedule)
+                HOUR=$(date +%H)
+                if [[ "$HOUR" == "09" ]]; then
+                  echo "AGENT_MESSAGE=🏥 Weekly repository health check: Analyze code quality, security vulnerabilities, performance issues, documentation gaps, and create improvement plan." >> $GITHUB_ENV
+                  echo "AGENT_MODE=advanced" >> $GITHUB_ENV
+                elif [[ "$HOUR" == "18" ]]; then
+                  echo "AGENT_MESSAGE=⚡ Weekly optimization: Implement performance improvements, update dependencies, optimize workflows, and enhance automation." >> $GITHUB_ENV
+                  echo "AGENT_MODE=meta-tooling" >> $GITHUB_ENV
+                else
+                  echo "AGENT_MESSAGE=🛡️ Daily security scan: Check for vulnerabilities, analyze dependencies, review access controls, and ensure security compliance." >> $GITHUB_ENV
+                  echo "AGENT_MODE=streaming" >> $GITHUB_ENV
+                fi
+                echo "AGENT_PRIORITY=normal" >> $GITHUB_ENV
                 ;;
               *)
-                echo "AGENT_MESSAGE=Handle GitHub event: $EVENT_TYPE. Please analyze the repository status and take appropriate action." >> $GITHUB_ENV
+                echo "AGENT_MESSAGE=🔄 Repository event: $EVENT_TYPE. Analyze the situation and take appropriate intelligent actions." >> $GITHUB_ENV
+                echo "AGENT_MODE=auto" >> $GITHUB_ENV
+                echo "AGENT_PRIORITY=normal" >> $GITHUB_ENV
                 ;;
             esac
           fi
 
-          echo "Prepared message: $AGENT_MESSAGE"
+          echo "📋 Final Configuration:"
+          echo "- Message: $AGENT_MESSAGE"
+          echo "- Mode: $AGENT_MODE"
+          echo "- Priority: $AGENT_PRIORITY"
 
-      - name: Run GitHub Agent
+      - name: 🤖 Execute Multi-Agent System
         env:
-          # GitHub tokens and context
+          # GitHub context
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
@@ -148,7 +222,7 @@ jobs:
           GITHUB_RUN_ID: ${{ github.run_id }}
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
 
-          # OpenAI configuration
+          # AI configuration
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL_ID: ${{ vars.OPENAI_MODEL_ID || 'gpt-4o-mini' }}
           OPENAI_MAX_TOKENS: "4000"
@@ -157,35 +231,83 @@ jobs:
           BYPASS_TOOL_CONSENT: "true"
           STRANDS_TOOL_CONSOLE_MODE: "enabled"
 
-          # Agent message
+          # Agent configuration
           AGENT_MESSAGE: ${{ env.AGENT_MESSAGE }}
+          AGENT_MODE: ${{ env.AGENT_MODE }}
+          AGENT_PRIORITY: ${{ env.AGENT_PRIORITY }}
 
         run: |
-          echo "🤖 Starting GitHub Agent..."
-          echo "Repository: $GITHUB_REPOSITORY"
-          echo "Event: $GITHUB_EVENT_NAME"
-          echo "Message: $AGENT_MESSAGE"
-          echo "Token available: $([ -n "$GITHUB_TOKEN" ] && echo "YES" || echo "NO")"
-          echo "Token length: ${#GITHUB_TOKEN}"
+          echo "🌟 Starting Advanced Multi-Agent GitHub System"
+          echo "════════════════════════════════════════════"
+          echo "🏢 Repository: $GITHUB_REPOSITORY"
+          echo "⚡ Event: $GITHUB_EVENT_NAME"
+          echo "🎯 Mode: $AGENT_MODE"
+          echo "📊 Priority: $AGENT_PRIORITY"
+          echo "💬 Task: $AGENT_MESSAGE"
+          echo "🔑 Auth: $([ -n "$GITHUB_TOKEN" ] && echo "✅ Available" || echo "❌ Missing")"
+          echo "🤖 OpenAI: $([ -n "$OPENAI_API_KEY" ] && echo "✅ Available" || echo "❌ Missing")"
+          echo "════════════════════════════════════════════"
           echo ""
 
-          # Run the agent with the prepared message
-          python -u agent.py "$AGENT_MESSAGE"
+          # Execute the unified agent system
+          python3 -u agent.py "$AGENT_MESSAGE" --mode="$AGENT_MODE" --priority="$AGENT_PRIORITY"
 
-      - name: Create workflow summary
+      - name: 📊 Generate execution report
         if: always()
         run: |
-          echo "## 🤖 GitHub Agent Execution Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 🤖 Multi-Agent System Execution Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Repository:** ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Event:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Triggered by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Workflow run:** [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
-          echo "- **Timestamp:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Execution Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **🏢 Repository:** \`${{ github.repository }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **⚡ Event:** \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **🎯 Mode:** \`${{ env.AGENT_MODE }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **📊 Priority:** \`${{ env.AGENT_PRIORITY }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **👤 Triggered by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **🔗 Workflow:** [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "- **⏰ Timestamp:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [[ "${{ job.status }}" == "success" ]]; then
-            echo "✅ **Status:** Completed successfully" >> $GITHUB_STEP_SUMMARY
+            echo "### ✅ Status: Completed Successfully" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The multi-agent system has successfully processed the task:" >> $GITHUB_STEP_SUMMARY
+            echo "> ${{ env.AGENT_MESSAGE }}" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **Status:** Failed or cancelled" >> $GITHUB_STEP_SUMMARY
+            echo "### ❌ Status: Execution Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The multi-agent system encountered an issue while processing:" >> $GITHUB_STEP_SUMMARY
+            echo "> ${{ env.AGENT_MESSAGE }}" >> $GITHUB_STEP_SUMMARY
           fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🎯 System Capabilities" >> $GITHUB_STEP_SUMMARY
+          echo "- 🤖 **6 Specialized AI Agents** working in coordination" >> $GITHUB_STEP_SUMMARY
+          echo "- 📡 **Real-time streaming** responses and monitoring" >> $GITHUB_STEP_SUMMARY
+          echo "- 🛠️ **Dynamic tool creation** and meta-programming" >> $GITHUB_STEP_SUMMARY
+          echo "- 🧠 **Intelligent mode selection** based on task complexity" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔒 **Comprehensive security** analysis and hardening" >> $GITHUB_STEP_SUMMARY
+          echo "- 📈 **Performance optimization** and automation" >> $GITHUB_STEP_SUMMARY
+
+      - name: 🔔 Notify on critical issues
+        if: failure() && env.AGENT_PRIORITY == 'critical'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Critical Multi-Agent System Failure',
+              body: `## 🚨 Critical System Alert
+              
+              The Advanced Multi-Agent GitHub System encountered a critical failure:
+              
+              **Details:**
+              - **Event:** ${{ github.event_name }}
+              - **Mode:** ${{ env.AGENT_MODE }}
+              - **Task:** ${{ env.AGENT_MESSAGE }}
+              - **Workflow:** [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+              - **Time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+              
+              Please investigate and resolve this issue immediately.`,
+              labels: ['bug', 'critical', 'ai-system']
+            });
