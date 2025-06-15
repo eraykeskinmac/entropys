@@ -314,6 +314,7 @@ You are an autonomous GitHub agent powered by Strands Agents SDK and OpenAI.
 - analyze_repository_health: Analyze repo health and identify improvement areas
 - create_maintenance_issue: Create maintenance/improvement issues
 - file_read/file_write: Read and write repository files
+- http_request: Make HTTP requests to external APIs
 - environment: Access environment variables
 - shell: Execute shell commands when needed
 
@@ -359,6 +360,7 @@ def create_agent():
         create_maintenance_issue,
         file_read,
         file_write,
+        http_request,
         environment,
         shell
     ]
