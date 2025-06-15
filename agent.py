@@ -227,8 +227,7 @@ Every analysis should result in actionable items: issues, PRs, or comments.
         self.basic_agent = Agent(
             model=self.model,
             system_prompt=basic_prompt,
-            tools=tools_list,
-            max_tool_calls_per_message=5  # Limit tool calls to prevent issues
+            tools=tools_list
         )
     
     def _create_unified_tools(self):
