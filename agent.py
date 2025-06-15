@@ -378,31 +378,40 @@ def main():
         # Get the message to process
         message = sys.argv[1] if len(sys.argv) > 1 else None
         
+        # Check if running in GitHub Actions (non-interactive environment)
+        is_github_actions = os.getenv('GITHUB_ACTIONS') == 'true'
+        
         if not message:
-            # Interactive mode
-            print("🤖 GitHub Agent powered by Strands Agents SDK")
-            print("Type your message below or 'exit' to quit:\n")
-            
-            while True:
-                try:
-                    q = input("\n> ")
-                    if q.lower() in ['exit', 'quit']:
+            if is_github_actions:
+                # Default message for GitHub Actions when no message provided
+                message = "Analyze the repository status, check for any issues that need attention, and take proactive actions to improve the repository health."
+                logger.info(f"Using default message for GitHub Actions: {message}")
+            else:
+                # Interactive mode (only for local development)
+                print("🤖 GitHub Agent powered by Strands Agents SDK")
+                print("Type your message below or 'exit' to quit:\n")
+                
+                while True:
+                    try:
+                        q = input("\n> ")
+                        if q.lower() in ['exit', 'quit']:
+                            print("\nGoodbye! 👋")
+                            break
+                        if q.strip():
+                            agent(q)
+                    except KeyboardInterrupt:
                         print("\nGoodbye! 👋")
                         break
-                    if q.strip():
-                        agent(q)
-                except KeyboardInterrupt:
-                    print("\nGoodbye! 👋")
-                    break
-                except Exception as e:
-                    logger.error(f"Error processing query: {e}")
-                    print(f"Error: {e}")
-        else:
-            # Single message mode (for GitHub Actions)
-            logger.info(f"Processing message: {message}")
-            result = agent(message)
-            logger.info(f"Agent response completed")
-            return result
+                    except Exception as e:
+                        logger.error(f"Error processing query: {e}")
+                        print(f"Error: {e}")
+                return
+        
+        # Single message mode (for GitHub Actions or direct message)
+        logger.info(f"Processing message: {message}")
+        result = agent(message)
+        logger.info(f"Agent response completed")
+        return result
             
     except Exception as e:
         logger.error(f"Failed to initialize or run agent: {e}")

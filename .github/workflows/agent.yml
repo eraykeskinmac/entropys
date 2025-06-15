@@ -96,48 +96,32 @@ jobs:
           git config --global user.email "github-agent@users.noreply.github.com"
 
       - name: Prepare agent message
-        id: prepare
         run: |
           EVENT_TYPE="${{ github.event_name }}"
 
           if [[ "$EVENT_TYPE" == "workflow_dispatch" ]]; then
             MESSAGE="${{ github.event.inputs.message }}"
-          elif [[ "$EVENT_TYPE" == "schedule" ]]; then
-            echo "AGENT_MESSAGE=Weekly maintenance: Analyze repository status, clean up stale issues and PRs, and provide a summary report." >> $GITHUB_ENV
+            if [[ -z "$MESSAGE" ]]; then
+              MESSAGE="Analyze the repository status, check for any issues that need attention, and take proactive actions to improve the repository health."
+            fi
+            echo "AGENT_MESSAGE=$MESSAGE" >> $GITHUB_ENV
           else
-            # Event-based messages
+            # Simplified event handling
             case "$EVENT_TYPE" in
               issues)
-                if [[ "${{ github.event.action }}" == "opened" ]]; then
-                  echo "AGENT_MESSAGE=New issue opened: #${{ github.event.issue.number }} '${{ github.event.issue.title }}' by @${{ github.event.issue.user.login }}. Please analyze and take appropriate action." >> $GITHUB_ENV
-                else
-                  echo "AGENT_MESSAGE=Issue #${{ github.event.issue.number }} '${{ github.event.issue.title }}' was ${{ github.event.action }}. Please review and respond appropriately." >> $GITHUB_ENV
-                fi
+                echo "AGENT_MESSAGE=Handle issue #${{ github.event.issue.number }}: '${{ github.event.issue.title }}' was ${{ github.event.action }}. Please analyze and take appropriate action." >> $GITHUB_ENV
                 ;;
               issue_comment)
-                if [[ "${{ github.event.action }}" == "created" ]]; then
-                  echo "AGENT_MESSAGE=New comment on issue #${{ github.event.issue.number }} by @${{ github.event.comment.user.login }}. Please review and respond if appropriate." >> $GITHUB_ENV
-                else
-                  echo "AGENT_MESSAGE=Comment on issue #${{ github.event.issue.number }} was ${{ github.event.action }}. Please review the changes." >> $GITHUB_ENV
-                fi
+                echo "AGENT_MESSAGE=Handle comment on issue #${{ github.event.issue.number }}. Please review and respond if appropriate." >> $GITHUB_ENV
                 ;;
               pull_request)
-                if [[ "${{ github.event.action }}" == "opened" ]]; then
-                  echo "AGENT_MESSAGE=New pull request opened: #${{ github.event.pull_request.number }} '${{ github.event.pull_request.title }}' by @${{ github.event.pull_request.user.login }}. Please review and provide feedback." >> $GITHUB_ENV
-                elif [[ "${{ github.event.action }}" == "ready_for_review" ]]; then
-                  echo "AGENT_MESSAGE=Pull request #${{ github.event.pull_request.number }} '${{ github.event.pull_request.title }}' is ready for review. Please analyze and provide review comments." >> $GITHUB_ENV
-                else
-                  echo "AGENT_MESSAGE=Pull request #${{ github.event.pull_request.number }} '${{ github.event.pull_request.title }}' was ${{ github.event.action }}. Please review the changes." >> $GITHUB_ENV
-                fi
+                echo "AGENT_MESSAGE=Handle pull request #${{ github.event.pull_request.number }}: '${{ github.event.pull_request.title }}' was ${{ github.event.action }}. Please review and take appropriate action." >> $GITHUB_ENV
                 ;;
-              pull_request_review)
-                echo "AGENT_MESSAGE=New review submitted for PR #${{ github.event.pull_request.number }} by @${{ github.event.review.user.login }}. Review state: ${{ github.event.review.state }}." >> $GITHUB_ENV
-                ;;
-              pull_request_review_comment)
-                echo "AGENT_MESSAGE=New review comment on PR #${{ github.event.pull_request.number }} by @${{ github.event.comment.user.login }}. Please review and respond if appropriate." >> $GITHUB_ENV
+              pull_request_review|pull_request_review_comment)
+                echo "AGENT_MESSAGE=Handle PR review activity on #${{ github.event.pull_request.number }}. Please analyze and respond appropriately." >> $GITHUB_ENV
                 ;;
               *)
-                echo "AGENT_MESSAGE=GitHub event '$EVENT_TYPE' triggered. Please analyze the situation and take appropriate action." >> $GITHUB_ENV
+                echo "AGENT_MESSAGE=Handle GitHub event: $EVENT_TYPE. Please analyze the repository status and take appropriate action." >> $GITHUB_ENV
                 ;;
             esac
           fi
