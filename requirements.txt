@@ -22,7 +22,7 @@ prometheus-client>=0.15.0
 
 # Memory and persistence
 redis>=4.5.0
-sqlite3  # Built-in, but listed for clarity
+# sqlite3 is built-in to Python, no need to install
 
 # Code analysis and quality tools
 ast-tools>=0.1.0
@@ -59,18 +59,18 @@ markdown>=3.4.0
 celery>=5.2.0
 schedule>=1.2.0
 
-# Machine learning for intelligent analysis
-scikit-learn>=1.2.0
-transformers>=4.25.0
+# Machine learning for intelligent analysis (optional, heavy packages)
+# scikit-learn>=1.2.0
+# transformers>=4.25.0
 
-# Graph and visualization for complex analysis
+# Graph and visualization for complex analysis (optional)
 networkx>=3.0
-matplotlib>=3.6.0
-plotly>=5.12.0
+# matplotlib>=3.6.0
+# plotly>=5.12.0
 
-# Advanced text processing
-nltk>=3.8
-spacy>=3.5.0
+# Advanced text processing (optional, heavy packages)
+# nltk>=3.8
+# spacy>=3.5.0
 
 # Performance monitoring
 psutil>=5.9.0
