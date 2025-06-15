@@ -1,9 +1,9 @@
-# Python Requirements - GitHub Agent
-# Dosya: requirements.txt
-
 # Strands Agents SDK and Tools
 strands-agents>=0.1.0
 strands-agents-tools>=0.1.0
+
+# OpenAI API (ZORUNLU)
+openai>=1.0.0
 
 # HTTP client for API interactions
 requests>=2.28.0
@@ -11,21 +11,9 @@ requests>=2.28.0
 # Additional utility libraries
 colorama>=0.4.6
 rich>=13.0.0
-
-# Date/time utilities
 python-dateutil>=2.8.2
-
-# JSON handling
 jsonschema>=4.0.0
-
-# Environment variable management
 python-dotenv>=1.0.0
-
-# Git operations (if needed)
 GitPython>=3.1.0
-
-# Markdown processing (for documentation)
 markdown>=3.4.0
-
-# YAML handling
 PyYAML>=6.0
