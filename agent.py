@@ -280,7 +280,7 @@ def create_model():
         raise ValueError("OPENAI_API_KEY environment variable is required")
     
     model_id = os.getenv('OPENAI_MODEL_ID', 'gpt-4o-mini')
-    max_tokens = int(os.getenv('OPENAI_MAX_TOKENS', '32000'))
+    max_tokens = int(os.getenv('OPENAI_MAX_TOKENS', '4000'))
     
     return OpenAIModel(
         client_args={'api_key': api_key},
