@@ -1,0 +1,19 @@
+# Strands Agents SDK and Tools
+strands-agents>=0.1.0
+strands-agents-tools>=0.1.0
+
+# OpenAI integration (required for the model)
+openai>=1.0.0
+
+# HTTP client for API interactions
+requests>=2.28.0
+
+# Additional utility libraries for enhanced functionality
+colorama>=0.4.6
+rich>=13.0.0
+python-dateutil>=2.8.2
+jsonschema>=4.0.0
+python-dotenv>=1.0.0
+GitPython>=3.1.0
+PyYAML>=6.0
+markdown>=3.4.0 

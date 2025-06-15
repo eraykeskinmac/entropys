@@ -1,7 +1,8 @@
+#!/usr/bin/env python3
 import os
-import sys
+import json
 import logging
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from strands import Agent, tool
 from strands.models.openai import OpenAIModel
@@ -10,9 +11,7 @@ from strands_tools import (
     file_write,
     http_request,
     environment,
-    shell,
-    current_time,
-    python_repl
+    shell
 )
 
 # Configure logging
@@ -22,24 +21,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Model configuration
-def create_model():
-    """Create and configure the AI model"""
-    api_key = os.getenv('OPENAI_API_KEY')
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY environment variable is required")
-    
-    return OpenAIModel(
-        client_args={'api_key': api_key},
-        model_id=os.getenv('OPENAI_MODEL_ID', 'gpt-4'),
-        params={
-            'max_completion_tokens': int(os.getenv('OPENAI_MAX_TOKENS', '4000')),
-            'temperature': 0.1
-        }
-    )
-
 @tool
-def use_github(query: str, variables: Optional[dict] = None) -> dict:
+def use_github(query: str, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Execute GitHub GraphQL queries and mutations.
     
@@ -73,10 +56,11 @@ def use_github(query: str, variables: Optional[dict] = None) -> dict:
         )
         return response
     except Exception as e:
+        logger.error(f"GitHub GraphQL API error: {e}")
         return {"error": f"GitHub API request failed: {str(e)}"}
 
 @tool
-def github_rest_api(endpoint: str, method: str = 'GET', data: Optional[dict] = None) -> dict:
+def github_rest_api(endpoint: str, method: str = 'GET', data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Make GitHub REST API calls.
     
@@ -107,10 +91,11 @@ def github_rest_api(endpoint: str, method: str = 'GET', data: Optional[dict] = N
             response = http_request(method=method, url=url, headers=headers)
         return response
     except Exception as e:
+        logger.error(f"GitHub REST API error: {e}")
         return {"error": f"GitHub REST API request failed: {str(e)}"}
 
 @tool
-def get_github_context() -> dict:
+def get_github_context() -> Dict[str, str]:
     """
     Get current GitHub context from environment variables.
     
@@ -129,38 +114,14 @@ def get_github_context() -> dict:
     }
 
 @tool
-def dispatch_workflow(workflow_file: str, inputs: Optional[dict] = None) -> dict:
+def manage_issue(action: str, issue_number: Optional[int] = None, **kwargs) -> Dict[str, Any]:
     """
-    Dispatch a GitHub Actions workflow.
-    
-    Args:
-        workflow_file: Workflow filename (e.g., 'agent.yml')
-        inputs: Optional inputs for the workflow
-    
-    Returns:
-        dict: Response from workflow dispatch
-    """
-    repository = os.getenv('GITHUB_REPOSITORY')
-    if not repository:
-        return {"error": "GITHUB_REPOSITORY environment variable is required"}
-    
-    endpoint = f"/repos/{repository}/actions/workflows/{workflow_file}/dispatches"
-    data = {
-        'ref': 'main',
-        'inputs': inputs or {}
-    }
-    
-    return github_rest_api(endpoint, 'POST', data)
-
-@tool
-def manage_issue(action: str, issue_number: Optional[int] = None, **kwargs) -> dict:
-    """
-    Manage GitHub issues (create, update, close, comment).
+    Manage GitHub issues (create, update, close, comment, list).
     
     Args:
         action: Action to perform (create, update, close, comment, list)
         issue_number: Issue number (required for update, close, comment)
-        **kwargs: Additional parameters based on action
+        **kwargs: Additional parameters (title, body, labels, assignees)
     
     Returns:
         dict: Response from issue management
@@ -196,14 +157,14 @@ def manage_issue(action: str, issue_number: Optional[int] = None, **kwargs) -> d
         return {"error": f"Invalid action '{action}' or missing parameters"}
 
 @tool
-def manage_pull_request(action: str, pr_number: Optional[int] = None, **kwargs) -> dict:
+def manage_pull_request(action: str, pr_number: Optional[int] = None, **kwargs) -> Dict[str, Any]:
     """
-    Manage GitHub pull requests.
+    Manage GitHub pull requests (create, update, close, merge, comment, list).
     
     Args:
-        action: Action to perform (list, create, update, merge, close, comment, review)
-        pr_number: PR number (required for some actions)
-        **kwargs: Additional parameters based on action
+        action: Action to perform (create, update, close, merge, comment, list)
+        pr_number: Pull request number (required for update, close, merge, comment)
+        **kwargs: Additional parameters
     
     Returns:
         dict: Response from PR management
@@ -221,133 +182,236 @@ def manage_pull_request(action: str, pr_number: Optional[int] = None, **kwargs) 
             'title': kwargs.get('title', 'New Pull Request'),
             'body': kwargs.get('body', ''),
             'head': kwargs.get('head', ''),
-            'base': kwargs.get('base', 'main')
+            'base': kwargs.get('base', 'main'),
+            'draft': kwargs.get('draft', False)
         }
         return github_rest_api(endpoint, 'POST', data)
-    elif pr_number:
-        if action == 'merge':
-            endpoint = f"/repos/{repository}/pulls/{pr_number}/merge"
-            data = {
-                'commit_title': kwargs.get('commit_title', ''),
-                'commit_message': kwargs.get('commit_message', ''),
-                'merge_method': kwargs.get('merge_method', 'merge')
-            }
-            return github_rest_api(endpoint, 'PUT', data)
-        elif action == 'comment':
-            endpoint = f"/repos/{repository}/issues/{pr_number}/comments"
-            data = {'body': kwargs.get('body', '')}
-            return github_rest_api(endpoint, 'POST', data)
-        elif action == 'review':
-            endpoint = f"/repos/{repository}/pulls/{pr_number}/reviews"
-            data = {
-                'body': kwargs.get('body', ''),
-                'event': kwargs.get('event', 'COMMENT')  # APPROVE, REQUEST_CHANGES, COMMENT
-            }
-            return github_rest_api(endpoint, 'POST', data)
+    elif action in ['update', 'close'] and pr_number:
+        endpoint = f"/repos/{repository}/pulls/{pr_number}"
+        data = {}
+        if action == 'close':
+            data['state'] = 'closed'
+        data.update({k: v for k, v in kwargs.items() if k in ['title', 'body', 'base']})
+        return github_rest_api(endpoint, 'PATCH', data)
+    elif action == 'merge' and pr_number:
+        endpoint = f"/repos/{repository}/pulls/{pr_number}/merge"
+        data = {
+            'commit_title': kwargs.get('commit_title', ''),
+            'commit_message': kwargs.get('commit_message', ''),
+            'merge_method': kwargs.get('merge_method', 'merge')
+        }
+        return github_rest_api(endpoint, 'PUT', data)
+    elif action == 'comment' and pr_number:
+        endpoint = f"/repos/{repository}/issues/{pr_number}/comments"
+        data = {'body': kwargs.get('body', '')}
+        return github_rest_api(endpoint, 'POST', data)
+    else:
+        return {"error": f"Invalid action '{action}' or missing parameters"}
+
+@tool
+def analyze_repository_health() -> Dict[str, Any]:
+    """
+    Analyze repository health and identify areas for improvement.
     
-    return {"error": f"Invalid action '{action}' or missing parameters"}
+    Returns:
+        dict: Analysis results with recommendations
+    """
+    context = get_github_context()
+    repository = context.get('repository', '')
+    
+    if not repository:
+        return {"error": "Repository context not available"}
+    
+    analysis = {
+        "issues_analysis": github_rest_api(f"/repos/{repository}/issues?state=open"),
+        "pulls_analysis": github_rest_api(f"/repos/{repository}/pulls?state=open"),
+        "recent_commits": github_rest_api(f"/repos/{repository}/commits?per_page=10"),
+        "repository_info": github_rest_api(f"/repos/{repository}")
+    }
+    
+    return analysis
 
-# System prompt for the GitHub agent
-SYSTEM_PROMPT = f"""
-You are an intelligent GitHub agent running in GitHub Actions with advanced repository management capabilities.
+@tool
+def create_maintenance_issue(title: str, body: str, labels: Optional[list] = None) -> Dict[str, Any]:
+    """
+    Create a maintenance or improvement issue.
+    
+    Args:
+        title: Issue title
+        body: Issue description
+        labels: Optional labels (defaults to ['maintenance'])
+    
+    Returns:
+        dict: Created issue response
+    """
+    if not labels:
+        labels = ['maintenance']
+    
+    return manage_issue('create', title=title, body=body, labels=labels)
 
-You use the Strands Agents SDK and have access to powerful tools for managing GitHub repositories.
+@tool
+def dispatch_workflow(workflow_file: str, inputs: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Dispatch a GitHub Actions workflow.
+    
+    Args:
+        workflow_file: Workflow filename (e.g., 'agent.yml')
+        inputs: Optional inputs for the workflow
+    
+    Returns:
+        dict: Response from workflow dispatch
+    """
+    repository = os.getenv('GITHUB_REPOSITORY')
+    if not repository:
+        return {"error": "GITHUB_REPOSITORY environment variable is required"}
+    
+    endpoint = f"/repos/{repository}/actions/workflows/{workflow_file}/dispatches"
+    data = {
+        'ref': 'main',
+        'inputs': inputs or {}
+    }
+    
+    return github_rest_api(endpoint, 'POST', data)
 
-## Your Responsibilities:
-- Manage issues: create, update, close, comment, and organize
-- Manage pull requests: review, merge, comment, and track
-- Execute GitHub GraphQL and REST API operations
-- Read and write repository files
-- Execute shell commands for git operations
-- Analyze code and provide insights
-- Automate repository workflows
-- Dispatch additional GitHub Actions workflows when needed
+def create_model():
+    """Create and configure the AI model"""
+    api_key = os.getenv('OPENAI_API_KEY')
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY environment variable is required")
+    
+    model_id = os.getenv('OPENAI_MODEL_ID', 'gpt-4o-mini')
+    max_tokens = int(os.getenv('OPENAI_MAX_TOKENS', '32000'))
+    
+    return OpenAIModel(
+        client_args={'api_key': api_key},
+        model_id=model_id,
+        params={
+            'max_completion_tokens': max_tokens,
+            'temperature': 0.1
+        }
+    )
 
-## Available Tools:
-- use_github: Execute GitHub GraphQL queries and mutations
-- github_rest_api: Make GitHub REST API calls
-- get_github_context: Get current GitHub context and environment
-- dispatch_workflow: Trigger other GitHub Actions workflows
-- manage_issue: Comprehensive issue management
-- manage_pull_request: Comprehensive PR management
-- file_read, file_write: Repository file operations
-- shell: Execute git and system commands
-- http_request: Make external API calls
-- python_repl: Execute Python code for analysis
-- current_time: Get current timestamp
-- environment: Check environment variables
+# System prompt focused on GitHub operations
+SYSTEM_PROMPT = """
+You are an autonomous GitHub agent powered by Strands Agents SDK and OpenAI.
 
-## Guidelines:
-- Always be helpful and proactive in repository management
-- When handling events, understand the context and take appropriate actions
-- Provide clear explanations of your actions
-- Use git commands through shell tool for version control operations
-- Be security-conscious with file operations and API calls
-- Document your actions and decisions
-- When in doubt, ask for clarification or provide multiple options
+**CORE RESPONSIBILITIES:**
+- Manage GitHub issues: create, update, close, comment, label
+- Manage pull requests: create, update, merge, close, review
+- Manage GitHub Projects V2: add items, update fields, move through workflows
+- Manage GitHub Discussions: create, respond, classify threads
+- Handle GitHub Actions workflows and dispatch new ones
+- Update repository files, documentation, and maintain code quality
+- Work with branches, commits, and repository management
 
-## Current Context:
-Repository: {os.getenv('GITHUB_REPOSITORY', 'Not set')}
-Event: {os.getenv('GITHUB_EVENT_NAME', 'Not set')}
-Actor: {os.getenv('GITHUB_ACTOR', 'Not set')}
-Workflow: {os.getenv('GITHUB_WORKFLOW', 'Not set')}
+**AVAILABLE TOOLS:**
+- use_github: Execute GraphQL queries for advanced GitHub operations
+- github_rest_api: Make REST API calls to GitHub
+- manage_issue: Handle issue operations (create/update/close/comment/list)
+- manage_pull_request: Handle PR operations (create/update/merge/close/comment/list)
+- dispatch_workflow: Trigger GitHub Actions workflows
+- get_github_context: Get current GitHub environment context
+- analyze_repository_health: Analyze repo health and identify improvement areas
+- create_maintenance_issue: Create maintenance/improvement issues
+- file_read/file_write: Read and write repository files
+- environment: Access environment variables
+- shell: Execute shell commands when needed
 
-You are ready to help manage this repository efficiently and intelligently!
-"""
+**OPERATIONAL GUIDELINES:**
+1. Always check the GitHub context first to understand the current situation
+2. Be PROACTIVE - actively look for ways to improve the repository
+3. Analyze repository health: check for stale issues, outdated dependencies, missing documentation
+4. Create issues for problems you identify (bugs, improvements, maintenance tasks)
+5. Create pull requests to fix issues when appropriate
+6. For complex operations, use GraphQL queries via use_github tool
+7. For simple operations, use the specialized management tools  
+8. When working with files, create feature branches for changes
+9. Document all significant changes and decisions
+10. Follow GitHub best practices for collaboration
+11. Take initiative - don't just respond, actively maintain and improve the repository
+
+**CURRENT CONTEXT:**
+- Repository: {repository}
+- Event: {event_name}
+- Actor: {actor}
+- Workflow: {workflow}
+
+Start by understanding the current GitHub context and the task at hand.
+""".format(
+    repository=os.getenv('GITHUB_REPOSITORY', 'Unknown'),
+    event_name=os.getenv('GITHUB_EVENT_NAME', 'Unknown'),
+    actor=os.getenv('GITHUB_ACTOR', 'Unknown'),
+    workflow=os.getenv('GITHUB_WORKFLOW', 'Unknown')
+)
 
 def create_agent():
-    """Create and configure the GitHub agent"""
-    try:
-        model = create_model()
-        
-        agent = Agent(
-            model=model,
-            system_prompt=SYSTEM_PROMPT,
-            tools=[
-                use_github,
-                github_rest_api,
-                get_github_context,
-                dispatch_workflow,
-                manage_issue,
-                manage_pull_request,
-                file_read,
-                file_write,
-                shell,
-                http_request,
-                python_repl,
-                current_time,
-                environment
-            ]
-        )
-        
-        return agent
-    except Exception as e:
-        logger.error(f"Failed to create agent: {e}")
-        raise
+    """Create the GitHub agent with all necessary tools"""
+    model = create_model()
+    
+    tools = [
+        use_github,
+        github_rest_api,
+        manage_issue,
+        manage_pull_request,
+        dispatch_workflow,
+        get_github_context,
+        analyze_repository_health,
+        create_maintenance_issue,
+        file_read,
+        file_write,
+        environment,
+        shell
+    ]
+    
+    return Agent(
+        model=model,
+        system_prompt=SYSTEM_PROMPT,
+        tools=tools
+    )
 
 def main():
-    """Main function to run the agent"""
+    """Main execution function"""
     try:
         # Create the agent
         agent = create_agent()
         
-        # Get the message from command line arguments or environment
-        if len(sys.argv) > 1:
-            message = ' '.join(sys.argv[1:])
+        # Get the message to process
+        message = sys.argv[1] if len(sys.argv) > 1 else None
+        
+        if not message:
+            # Interactive mode
+            print("🤖 GitHub Agent powered by Strands Agents SDK")
+            print("Type your message below or 'exit' to quit:\n")
+            
+            while True:
+                try:
+                    q = input("\n> ")
+                    if q.lower() in ['exit', 'quit']:
+                        print("\nGoodbye! 👋")
+                        break
+                    if q.strip():
+                        agent(q)
+                except KeyboardInterrupt:
+                    print("\nGoodbye! 👋")
+                    break
+                except Exception as e:
+                    logger.error(f"Error processing query: {e}")
+                    print(f"Error: {e}")
         else:
-            message = os.getenv('AGENT_MESSAGE', 'Hello! I am ready to help manage this GitHub repository.')
-        
-        logger.info(f"GitHub Agent starting with message: {message}")
-        
-        # Run the agent
-        response = agent(message)
-        
-        logger.info("GitHub Agent completed successfully")
-        print(f"\nAgent Response:\n{response.message}")
-        
+            # Single message mode (for GitHub Actions)
+            logger.info(f"Processing message: {message}")
+            result = agent(message)
+            logger.info(f"Agent response completed")
+            return result
+            
     except Exception as e:
-        logger.error(f"Agent execution failed: {e}")
-        sys.exit(1)
+        logger.error(f"Failed to initialize or run agent: {e}")
+        print(f"Error: {e}")
+        return None
+
+# Create global agent instance for import usage
+agent = create_agent()
 
 if __name__ == '__main__':
+    import sys
     main()
