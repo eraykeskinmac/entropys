@@ -1,6 +1,7 @@
 # Strands Agents SDK and Tools - Advanced Multi-Agent System
 strands-agents>=0.1.0
 strands-agents-tools>=0.1.0
+mem0ai>=0.1.0
 
 # OpenAI integration (required for the model)
 openai>=1.0.0

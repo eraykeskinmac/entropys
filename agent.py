@@ -19,11 +19,39 @@ from typing import Dict, List, Optional, Any
 
 from strands import Agent, tool
 from strands.models.openai import OpenAIModel
-from strands_tools import (
-    file_read, file_write, http_request, environment, shell,
-    current_time, python_repl, calculator, load_tool, editor,
-    mem0_memory, journal
-)
+# Import Strands tools with error handling
+try:
+    from strands_tools import (
+        file_read, file_write, http_request, environment, shell,
+        current_time, python_repl, calculator, load_tool, editor,
+        journal
+    )
+    # Try to import mem0_memory separately as it might not be available
+    try:
+        from strands_tools import mem0_memory
+        MEMORY_AVAILABLE = True
+    except ImportError:
+        print("⚠️ mem0_memory not available, continuing without memory features")
+        mem0_memory = None
+        MEMORY_AVAILABLE = False
+    
+    print("✅ Strands tools loaded successfully")
+except ImportError as e:
+    print(f"❌ Failed to import strands_tools: {e}")
+    # Create dummy functions if strands_tools is not available
+    def file_read(*args, **kwargs): return "file_read not available"
+    def file_write(*args, **kwargs): return "file_write not available"
+    def http_request(*args, **kwargs): return "http_request not available"
+    def environment(*args, **kwargs): return "environment not available"
+    def shell(*args, **kwargs): return "shell not available"
+    def current_time(*args, **kwargs): return "current_time not available"
+    def python_repl(*args, **kwargs): return "python_repl not available"
+    def calculator(*args, **kwargs): return "calculator not available"
+    def load_tool(*args, **kwargs): return "load_tool not available"
+    def editor(*args, **kwargs): return "editor not available"
+    def journal(*args, **kwargs): return "journal not available"
+    mem0_memory = None
+    MEMORY_AVAILABLE = False
 
 # Import our advanced modules
 try:
@@ -148,15 +176,22 @@ INSTRUCTIONS:
 - Create issues, PRs, and documentation as needed
 """
         
+        # Prepare tools list
+        tools_list = [
+            self._create_unified_tools(),
+            file_read, file_write, http_request, environment, shell,
+            current_time, python_repl, calculator, load_tool, editor,
+            journal
+        ]
+        
+        # Add memory tool if available
+        if MEMORY_AVAILABLE and mem0_memory:
+            tools_list.append(mem0_memory)
+        
         self.basic_agent = Agent(
             model=self.model,
             system_prompt=basic_prompt,
-            tools=[
-                self._create_unified_tools(),
-                file_read, file_write, http_request, environment, shell,
-                current_time, python_repl, calculator, load_tool, editor,
-                mem0_memory, journal
-            ]
+            tools=tools_list
         )
     
     def _create_unified_tools(self):
