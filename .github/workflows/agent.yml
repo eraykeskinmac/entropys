@@ -50,6 +50,13 @@ permissions:
   pull-requests: write
   actions: write
   discussions: write
+  checks: write
+  statuses: write
+  repository-projects: write
+  packages: write
+  deployments: write
+  pages: write
+  security-events: write
 
 jobs:
   run-agent:
@@ -158,6 +165,8 @@ jobs:
           echo "Repository: $GITHUB_REPOSITORY"
           echo "Event: $GITHUB_EVENT_NAME"
           echo "Message: $AGENT_MESSAGE"
+          echo "Token available: $([ -n "$GITHUB_TOKEN" ] && echo "YES" || echo "NO")"
+          echo "Token length: ${#GITHUB_TOKEN}"
           echo ""
 
           # Run the agent with the prepared message

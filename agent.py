@@ -43,30 +43,32 @@ Create issues, PRs, and improvements for THIS repository specifically.
 - First use environment tool to get GITHUB_TOKEN
 - ALWAYS include this exact headers object in ALL GitHub API requests:
 
-STEP BY STEP for EVERY GitHub API call:
-1. Use environment tool to get GITHUB_TOKEN
-2. For EVERY http_request to GitHub API, use these exact headers:
-   {{
-     "Authorization": "Bearer <GITHUB_TOKEN_VALUE>",
-     "Accept": "application/vnd.github.v3+json",
-     "Content-Type": "application/json"
-   }}
+CRITICAL AUTHENTICATION STEPS:
+1. FIRST: Use environment() tool to get GITHUB_TOKEN value
+2. THEN: Use that exact token value in Authorization header
+3. Format: "Bearer " + token_value (with space after Bearer)
 
-EXAMPLE:
-```
-# Step 1: Get token
-environment()  # to see GITHUB_TOKEN
+AUTHENTICATION WORKFLOW:
+Step 1: environment() → Get GITHUB_TOKEN value
+Step 2: Use token in headers like this:
 
-# Step 2: Make authenticated request
-http_request(
-  method="GET",
-  url="https://api.github.com/repos/{os.getenv('GITHUB_REPOSITORY', '')}",
-  headers={{
-    "Authorization": "Bearer YOUR_TOKEN_HERE",
-    "Accept": "application/vnd.github.v3+json"
-  }}
-)
-```
+headers = {{
+  "Authorization": f"Bearer {{token_from_environment}}",
+  "Accept": "application/vnd.github.v3+json"
+}}
+
+EXAMPLE SEQUENCE:
+1. environment() # Returns GITHUB_TOKEN=ghs_abc123...
+2. http_request(
+     method="GET",
+     url="https://api.github.com/repos/eraykeskinmac/entropys", 
+     headers={{
+       "Authorization": "Bearer ghs_abc123...",  # Use actual token here
+       "Accept": "application/vnd.github.v3+json"
+     }}
+   )
+
+NEVER hardcode tokens - always get from environment first!
 
 **PROACTIVE ACTIONS TO TAKE:**
 1. Check current repository status and existing issues
