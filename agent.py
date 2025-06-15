@@ -13,6 +13,16 @@ from strands_tools import (
     shell
 )
 
+# Import our custom GitHub modules
+try:
+    from github_api import GitHubAPI
+    from agent_actions import GitHubAgentActions
+    print("✅ GitHub modules loaded successfully")
+except ImportError as e:
+    print(f"⚠️ Warning: Could not import GitHub modules: {e}")
+    GitHubAPI = None
+    GitHubAgentActions = None
+
 # Initialize the OpenAI model
 model = OpenAIModel(
     client_args={'api_key': os.getenv('OPENAI_API_KEY')},
@@ -38,37 +48,38 @@ Create issues, PRs, and improvements for THIS repository specifically.
 - Write documentation (README updates, CONTRIBUTING.md, etc.)
 - Organize work using milestones and project boards
 
-**GITHUB API AUTHENTICATION (CRITICAL):**
-- Base URL: https://api.github.com
-- First use environment tool to get GITHUB_TOKEN
-- ALWAYS include this exact headers object in ALL GitHub API requests:
+**GITHUB ACTIONS AVAILABLE:**
+✅ POWERFUL: Use the GitHubAgentActions class for comprehensive repository management!
 
-CRITICAL AUTHENTICATION STEPS:
-1. FIRST: Use environment() tool to get GITHUB_TOKEN value
-2. THEN: Use that exact token value in Authorization header
-3. Format: "Bearer " + token_value (with space after Bearer)
+**Quick Actions:**
+```python
+# Initialize the actions class
+from agent_actions import GitHubAgentActions
+actions = GitHubAgentActions()
 
-AUTHENTICATION WORKFLOW:
-Step 1: environment() → Get GITHUB_TOKEN value
-Step 2: Use token in headers like this:
+# Run full health check (recommended)
+results = actions.run_full_health_check()
 
-headers = {{
-  "Authorization": f"Bearer {{token_from_environment}}",
-  "Accept": "application/vnd.github.v3+json"
-}}
+# Or use specific actions:
+actions.create_health_improvement_issue()
+actions.create_documentation_issues()
+actions.create_ci_cd_improvement_issue()
+actions.setup_repository_labels()
+actions.create_weekly_status_issue()
+```
 
-EXAMPLE SEQUENCE:
-1. environment() # Returns GITHUB_TOKEN=ghs_abc123...
-2. http_request(
-     method="GET",
-     url="https://api.github.com/repos/eraykeskinmac/entropys", 
-     headers={{
-       "Authorization": "Bearer ghs_abc123...",  # Use actual token here
-       "Accept": "application/vnd.github.v3+json"
-     }}
-   )
+**Direct GitHub API:**
+```python
+# For custom API calls
+from github_api import GitHubAPI
+github = GitHubAPI()
 
-NEVER hardcode tokens - always get from environment first!
+repo_info = github.get_repo_info()
+issues = github.get_issues()
+github.create_issue(title="...", body="...", assignees=["..."], labels=["..."])
+```
+
+**RECOMMENDED APPROACH:** Use `actions.run_full_health_check()` for comprehensive repository improvement!
 
 **PROACTIVE ACTIONS TO TAKE:**
 1. Check current repository status and existing issues
@@ -99,11 +110,32 @@ POST /repos/{os.getenv('GITHUB_REPOSITORY', '')}/issues
 - Actor: {os.getenv('GITHUB_ACTOR', 'Unknown')}
 
 **START YOUR WORK:**
-1. FIRST: Use environment tool to check GITHUB_TOKEN 
-2. THEN: Analyze current repository using authenticated GitHub API calls
-3. FINALLY: Create meaningful issues for improvements
+1. Import and initialize GitHubAgentActions
+2. Run comprehensive health check
+3. Review results and take additional actions if needed
 
-IMPORTANT: Every GitHub API call MUST include the Authorization header or it will fail with 404!
+**QUICK START COMMAND:**
+Use shell tool to run this Python code:
+
+```python
+from agent_actions import GitHubAgentActions
+
+# Initialize and run full health check
+actions = GitHubAgentActions()
+results = actions.run_full_health_check()
+
+# Print results
+print("\\n🎉 ACTIONS COMPLETED:")
+for action in results['actions_taken']:
+    print(f"✅ {action}")
+
+print(f"\\n📊 ANALYSIS SUMMARY:")
+print(f"- Open Issues: {results['analysis']['open_issues']}")
+print(f"- Open PRs: {results['analysis']['open_prs']}")
+print(f"- Recommendations: {len(results['analysis']['recommendations'])}")
+```
+
+This will automatically create issues, labels, milestones, and status reports!
 """
 
 # Create the agent
