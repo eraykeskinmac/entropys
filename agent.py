@@ -115,25 +115,7 @@ POST /repos/{os.getenv('GITHUB_REPOSITORY', '')}/issues
 3. Review results and take additional actions if needed
 
 **QUICK START COMMAND:**
-Use shell tool to run this Python code:
-
-```python
-from agent_actions import GitHubAgentActions
-
-# Initialize and run full health check
-actions = GitHubAgentActions()
-results = actions.run_full_health_check()
-
-# Print results
-print("\\n🎉 ACTIONS COMPLETED:")
-for action in results['actions_taken']:
-    print(f"✅ {action}")
-
-print(f"\\n📊 ANALYSIS SUMMARY:")
-print(f"- Open Issues: {results['analysis']['open_issues']}")
-print(f"- Open PRs: {results['analysis']['open_prs']}")
-print(f"- Recommendations: {len(results['analysis']['recommendations'])}")
-```
+Use shell tool to execute: `python3 -c "from agent_actions import GitHubAgentActions; actions = GitHubAgentActions(); results = actions.run_full_health_check(); print('Actions completed:', len(results['actions_taken']))"`
 
 This will automatically create issues, labels, milestones, and status reports!
 """
