@@ -8,6 +8,14 @@ import os
 import json
 from typing import Dict, List, Optional, Any
 
+# Import Strands tools at module level
+try:
+    from strands_tools import http_request
+    print("✅ http_request imported successfully")
+except ImportError as e:
+    print(f"❌ Failed to import http_request: {e}")
+    http_request = None
+
 def get_github_token() -> str:
     """Get GitHub token from environment"""
     token = os.getenv('GITHUB_TOKEN', '')
@@ -47,27 +55,35 @@ class GitHubAPI:
     
     def make_request(self, method: str, endpoint: str, data: Optional[Dict] = None) -> Optional[Dict]:
         """Make authenticated GitHub API request"""
-        from strands_tools import http_request
-        
+        if http_request is None:
+            print("❌ http_request not available")
+            return None
+            
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
         
         print(f"🔗 GitHub API: {method.upper()} {endpoint}")
+        print(f"🔗 URL: {url}")
+        print(f"🔗 Headers: {self.headers}")
         
         try:
             if method.upper() == "GET":
-                return http_request(method="GET", url=url, headers=self.headers)
+                result = http_request(method="GET", url=url, headers=self.headers)
             elif method.upper() == "POST":
-                return http_request(method="POST", url=url, headers=self.headers, data=data)
+                result = http_request(method="POST", url=url, headers=self.headers, data=data)
             elif method.upper() == "PATCH":
-                return http_request(method="PATCH", url=url, headers=self.headers, data=data)
+                result = http_request(method="PATCH", url=url, headers=self.headers, data=data)
             elif method.upper() == "PUT":
-                return http_request(method="PUT", url=url, headers=self.headers, data=data)
+                result = http_request(method="PUT", url=url, headers=self.headers, data=data)
             elif method.upper() == "DELETE":
-                return http_request(method="DELETE", url=url, headers=self.headers)
+                result = http_request(method="DELETE", url=url, headers=self.headers)
             else:
                 raise ValueError(f"Unsupported HTTP method: {method}")
+            
+            print(f"✅ GitHub API Response: {type(result)}")
+            return result
         except Exception as e:
             print(f"❌ GitHub API Error: {e}")
+            print(f"❌ Error type: {type(e)}")
             return None
     
     def get_repo_info(self) -> Optional[Dict]:
